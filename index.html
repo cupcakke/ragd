@@ -2115,6 +2115,197 @@
   </div>
   <input type="file" id="fg" style="display:none" multiple>
   <script>
+    (function () {
+      "use strict";
+      var sbOpen = false,
+        searchOpen = false,
+        searchQuery = "";
+      var $ = function (id) {
+        return document.getElementById(id);
+      };
+      var _elSidebar = $("sidebar"),
+        _elContent = $("content"),
+        _elBackdrop = $("sidebar-backdrop");
+      function openSB() {
+        if (!_elSidebar || !_elContent) return;
+        sbOpen = true;
+        _elSidebar.classList.add("open");
+        _elSidebar.setAttribute("aria-hidden", "false");
+        if (_elBackdrop) {
+          _elBackdrop.classList.add("open");
+          _elBackdrop.setAttribute("aria-hidden", "false");
+        }
+        _elContent.setAttribute("inert", "");
+      }
+      function closeSB() {
+        if (!_elSidebar || !_elContent) return;
+        sbOpen = false;
+        _elSidebar.classList.remove("open");
+        _elSidebar.setAttribute("aria-hidden", "true");
+        if (_elBackdrop) {
+          _elBackdrop.classList.remove("open");
+          _elBackdrop.setAttribute("aria-hidden", "true");
+        }
+        _elContent.removeAttribute("inert");
+        if (searchOpen) closeSearch();
+      }
+      if (_elBackdrop) {
+        _elBackdrop.addEventListener("click", closeSB);
+      }
+      var _elSbSearchBar = $("sb-search-bar"),
+        _elSbQ = $("sb-q");
+      function openSearch() {
+        if (!_elSbSearchBar || !_elSbQ) return;
+        searchOpen = true;
+        _elSbSearchBar.classList.add("open");
+        requestAnimationFrame(function () {
+          _elSbQ.focus();
+        });
+      }
+      function closeSearch() {
+        if (!_elSbSearchBar || !_elSbQ) return;
+        searchOpen = false;
+        searchQuery = "";
+        _elSbQ.value = "";
+        _elSbSearchBar.classList.remove("open");
+        _elSbQ.blur();
+      }
+      var btnSbSearch = $("btn-sb-search"),
+        sbQCancel = $("sb-q-cancel");
+      if (btnSbSearch) btnSbSearch.addEventListener("click", function () {
+        searchOpen ? closeSearch() : openSearch();
+      });
+      if (sbQCancel) sbQCancel.addEventListener("click", closeSearch);
+      var searchDeb = 0;
+      if (_elSbQ) _elSbQ.addEventListener("input", function (e) {
+        clearTimeout(searchDeb);
+        searchDeb = setTimeout(function () {
+          searchQuery = e.target.value;
+        }, 100);
+      });
+      (function () {
+        var body = document.querySelector(".sb-body");
+        if (!body) return;
+        var y = 0,
+          p = false;
+        body.addEventListener("touchstart", function (e) {
+          p = body.scrollTop <= 0 && !searchOpen;
+          y = e.touches[0].clientY;
+        }, {
+          passive: true
+        });
+        body.addEventListener("touchmove", function (e) {
+          if (!p) return;
+          var dy = e.touches[0].clientY - y;
+          var sidebar = $("sidebar");
+          if (dy > 12 && sidebar) sidebar.classList.add("pull-hinting");
+          if (dy > 72) {
+            openSearch();
+            p = false;
+            if (sidebar) sidebar.classList.remove("pull-hinting");
+          }
+        }, {
+          passive: true
+        });
+        ["touchend", "touchcancel"].forEach(function (ev) {
+          body.addEventListener(ev, function () {
+            p = false;
+            var sidebar = $("sidebar");
+            if (sidebar) sidebar.classList.remove("pull-hinting");
+          }, {
+            passive: true
+          });
+        });
+      })();
+      (function () {
+        var sidebar = $("sidebar");
+        if (!sidebar) return;
+        var sx = 0,
+          sy = 0,
+          drag = false,
+          id = -1,
+          dir = null;
+        document.addEventListener("touchstart", function (e) {
+          dir = null;
+          drag = false;
+          if (e.touches.length !== 1) return;
+          var t = e.touches[0];
+          if (!sbOpen && t.clientX > 40) return;
+          id = t.identifier;
+          sx = t.clientX;
+          sy = t.clientY;
+        }, {
+          passive: true
+        });
+        document.addEventListener("touchmove", function (e) {
+          var t = null;
+          for (var i = 0; i < e.touches.length; i++) {
+            if (e.touches[i].identifier === id) t = e.touches[i];
+          }
+          if (!t) return;
+          var dx = t.clientX - sx,
+            dy = t.clientY - sy;
+          if (dir == null) {
+            if (Math.abs(dx) + Math.abs(dy) < 6) return;
+            dir = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+          }
+          if (dir !== "h") return;
+          var w = sidebar.getBoundingClientRect().width || innerWidth;
+          if (!sbOpen && sx < 36 && dx > 0) {
+            drag = true;
+            sidebar.classList.add("dragging");
+            sidebar.style.transform = "translateX(" + Math.min(0, -100 + dx / w * 100) + "%)";
+          } else if (sbOpen && dx < 0) {
+            drag = true;
+            sidebar.classList.add("dragging");
+            sidebar.style.transform = "translateX(" + Math.max(-100, dx / w * 100) + "%)";
+          }
+        }, {
+          passive: true
+        });
+        document.addEventListener("touchend", function (e) {
+          if (!drag) return;
+          drag = false;
+          sidebar.classList.remove("dragging");
+          sidebar.style.transform = "";
+          var changed = e.changedTouches && e.changedTouches[0];
+          if (!changed) return;
+          var dx = changed.clientX - sx;
+          var w = sidebar.getBoundingClientRect().width || innerWidth;
+          var th = Math.max(80, Math.min(w * 0.18, 140));
+          if (!sbOpen && dx > th) openSB();
+          else if (sbOpen && dx < -th) closeSB();
+        }, {
+          passive: true
+        });
+      })();
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          if (sbOpen) {
+            closeSB();
+            return;
+          }
+          if (searchOpen) {
+            closeSearch();
+            return;
+          }
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          sbOpen ? closeSB() : openSB();
+        }
+      });
+      var btnSbNew = $("btn-sb-new");
+      if (btnSbNew) btnSbNew.addEventListener("click", function () {
+        closeSB();
+      });
+      window.openSB = openSB;
+      window.closeSB = closeSB;
+      window.openSearch = openSearch;
+      window.closeSearch = closeSearch;
+    })();
+  </script>
+  <script>
     (() => {
       const PROFILE = {
         refThickness: 20,
