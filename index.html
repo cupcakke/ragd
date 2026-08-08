@@ -1889,7 +1889,7 @@
               selectionEnd: ta.selectionEnd || 0,
               autocorrect: ta.getAttribute("autocorrect") !== "off",
               autocapitalize: ta.getAttribute("autocapitalize") || "sentences",
-              returnKey: ta.getAttribute("enterkeyhint") || "send"
+              returnKey: ta.getAttribute("enterkeyhint") || "enter"
             };
             try {
               window.webkit.messageHandlers.inputBridge.postMessage(payload);
@@ -2039,8 +2039,16 @@
           scheduleBridgeFlush();
         },
         triggerSend: function () {
-          var btn = document.getElementById("sbtn");
-          if (btn && !btn.disabled) btn.click();
+          var ta = document.getElementById("ta");
+          if (ta) {
+            var val = ta.value || "";
+            var start = ta.selectionStart || val.length;
+            var end = ta.selectionEnd || val.length;
+            ta.value = val.substring(0, start) + "\n" + val.substring(end);
+            ta.selectionStart = ta.selectionEnd = start + 1;
+            ta.dispatchEvent(new Event("input", { bubbles: true }));
+            ta.dispatchEvent(new Event("change", { bubbles: true }));
+          }
         },
         getInputText: function () {
           var ta = document.getElementById("ta");
@@ -2108,7 +2116,7 @@
             <button class="ibtn lg" id="btn-gal" aria-label="Kép csatolása" type="button" data-haptic="impact-light"><svg viewBox="0 0 24 24">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg></button>
-            <form class="ibox lg" onsubmit="event.preventDefault();"><textarea id="ta" placeholder="Üzenet" rows="1" aria-label="Üzenet" enterkeyhint="send"></textarea></form>
+            <form class="ibox lg" onsubmit="event.preventDefault();"><textarea id="ta" placeholder="Üzenet" rows="1" aria-label="Üzenet" enterkeyhint="enter"></textarea></form>
             <button class="sbtn" id="sbtn" disabled aria-label="Küldés" type="button" data-haptic="impact-medium"><svg id="sico" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 19V5M5 12l7-7 7 7" />
               </svg></button>
@@ -2316,6 +2324,14 @@
       });
       window.openSB = openSB;
       window.closeSB = closeSB;
+      var _ta = $("ta");
+      if (_ta) {
+        _ta.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            e.stopPropagation();
+          }
+        });
+      }
       window.openSearch = openSearch;
       window.closeSearch = closeSearch;
     })();
